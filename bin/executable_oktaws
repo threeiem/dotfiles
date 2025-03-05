@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+set -e
+set -u
+set -o pipefail
+
+################################################################################
+# GLOBALS
+################################################################################
+
+# App specific globals
+APP_PATH="${HOME}/bin/twc_okta_aws_login"
+APP_ENV="${HOME}/.okta_aws_env"
+
+# Okta specific globals
+OKTA_USERNAME="phil.cogbill@weather.com"
+OKTA_FORMAT="json"
+OKTA_DURATION=3600
+OKTA_URL=""
+
+# AWS defaults globals
+AWS_ENV="nonprod"
+AWS_REGION="us-east-1"
+AWS_ROLE="Okta-PU"
+AWS_PROFILE="default"
+
+# Feature flags
+VERBOSE="false"
+
+################################################################################
+# Functions
+################################################################################
+
+utc () {
+  date --utc "+%Y-%m-%dT%H:%M:%SZ"
+}
+
+usage(){
+  echo -n "Usage: ${Bold}${Green}$(basename $0)${Reset} "
+  echo -n "[${Bold}-v${Reset}|${Bold}--verbose${Reset}]"
+  echo -n " "
+  echo -n "[${Bold}-e${Reset}|${Bold}--environment${Reset} <${Bold}prod${Reset}|${Bold}${Cyan}nonprod${Reset}>]"
+  echo -n " "
+  echo -n "[${Bold}-r${Reset}|${Bold}--role${Reset} <${Bold}${Cyan}ro${Reset}|${Bold}pu${Reset}>]"
+  echo -n " "
+  echo -n "[${Bold}-h${Reset}|${Bold}--help${Reset}]"
+  echo -ne "\n"
+}
+
+check_environment(){
+  local env
+  env="${1}"
+  case "${env,,}" in
+
+    "cf-production"|"cfprod"|"cfp"|"cp")
+      OKTA_URL="https://weather.okta.com/home/theweathercompanyanibmbusiness_awsscb2bacfprod_1/0oadts35amK5NRZvm0x7/alndts9bh8GrknwFs0x7"
+      echo "$(utc) [${Red}PROD${Reset}] Using AWS CF production environment (prod) by ${USER}@${HOSTNAME}"
+      return
+      ;;
+
+    "rqtc-production"|"rprod"|"rp")
+      OKTA_URL="https://weather.okta.com/home/theweatherchannel_awswsimediarqtcprod_1/0oa7fs3a25DVwkdBp0x7/aln7fs5qfneeRpDb40x7"
+      echo "$(utc) [${Red}PROD${Reset}] Using AWS RQTC production environment (prod) by ${USER}@${HOSTNAME}"
+      return
+      ;;
+
+    "cf-non-prod"|"cf-nonprod"|"cfnonprod"|"cnp"|"cfdev"|"cfstage"|"cfqa")
+      OKTA_URL="https://weather.okta.com/home/theweathercompanyanibmbusiness_awsscb2bacfnonprod_1/0oad29f9w2QJHqG6S0x7/alnd29k2p5pr9wJLi0x7"
+      echo "$(utc) [${Bold}${Green}DEV${Reset}] Using AWS CF non-prodution environment by ${USER}@${HOSTNAME}"
+      return
+      ;;
+
+    "rqtc-non-prod"|"rnonprod"|"rnp"|"rdev"|"rstage"|"rqa")
+      OKTA_URL="https://weather.okta.com/home/theweatherchannel_awswsimediarqtcnonprod_1/0oa7fs0jtvZSex9020x7/aln7fs2u9dCLDwH040x7"
+      echo "$(utc) [${Bold}${Green}DEV${Reset}] Using AWS RQTC non-prodution environment by ${USER}@${HOSTNAME}"
+      return
+      ;;
+    *)
+      echo "$(utc) [${Bold}${Red}ERROR${Reset}] Unknown environment ${env}"
+      exit 1
+  esac
+}
+
+check_role(){
+  local role
+  role="${1}"
+
+  case "${role,,}" in
+    "power-user"|"pu"|"okta-pu"|"poweruser")
+      echo "$(utc) [${Bold}${Yellow}Power User${Reset}] Using Okta Power User Role (Okta-PU)"
+      AWS_ROLE="Okta-PU"
+      return
+      ;;
+    "read-only"|"ro"|"read"|"reader")
+      echo "$(utc) [${Bold}${Green}Read Only${Reset}] Using Okta Read-Only Role (Okta-RO)"
+      AWS_ROLE="Okta-RO"
+      return
+      ;;
+    "admin"|"adm"|"a"|"root"|"god-mode")
+      echo "$(utc) [${Red}Admin${Reset}] Using Okta Admin User Role (Okta-Admin)"
+      AWS_ROLE="Okta-Admin"
+	  return
+	  ;;
+	*)
+      echo "$(utc) [${Bold}${Red}ERROR${Reset}] Unknown role ${role}"
+	  ;;
+  esac
+}
+
+parse_arguments(){
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -v|--verbose)
+        VERBOSE="true"
+        shift
+        ;;
+      -e|--environment)
+        check_environment $2
+        shift 2 # Skip both argument and its value
+        ;;
+      -r|--role)
+        check_role $2
+        shift 2
+        ;;
+      -h|--help)
+	usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown argument: $1"
+	usage
+        exit 1
+        ;;
+    esac
+  done
+}
+
+
+################################################################################
+# Run
+################################################################################
+parse_arguments $@
+
+if [[ "${VERBOSE}" == "true" ]]; then
+  ${APP_PATH}\
+    --username ${OKTA_USERNAME} \
+    --idp_entry_url ${OKTA_URL} \
+    --output_format ${OKTA_FORMAT} \
+    --region ${AWS_REGION} \
+    --profile ${AWS_PROFILE} \
+    --role ${AWS_ROLE} \
+    --duration ${OKTA_DURATION} \
+    --cache_sid \
+    --verbose \
+    --export_vars ${APP_ENV} | grep -v "${APP_ENV}"
+else
+   ${APP_PATH}\
+    --username ${OKTA_USERNAME} \
+    --idp_entry_url ${OKTA_URL} \
+    --output_format ${OKTA_FORMAT} \
+    --region ${AWS_REGION} \
+    --profile ${AWS_PROFILE} \
+    --role ${AWS_ROLE} \
+    --duration ${OKTA_DURATION} \
+    --cache_sid \
+    --export_vars ${APP_ENV} | grep -v "${APP_ENV}"
+fi
+
+if [[ -e "${APP_ENV}" ]];then
+  chmod 600 ${APP_ENV}
+  source ${APP_ENV}
+fi
