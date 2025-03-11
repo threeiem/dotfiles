@@ -1,6 +1,9 @@
 # Use homebrew environment hints
 export HOMEBREW_NO_ENV_HINTS="true"
 
+# Core Homebrew install
+export PATH="$(brew --prefix)/bin:${PATH}"
+
 # GNU Core Utilities
 export PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:${PATH}"
 
