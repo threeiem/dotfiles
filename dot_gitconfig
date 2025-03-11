@@ -1,0 +1,55 @@
+[init]
+  defaultBranch = main
+[core]
+  editor = vim
+  pager = less -rFX
+  autocrlf = false
+  safecrlf = false
+  ignorecase = false
+  fileMode = true
+[commit]
+  gpgsign = true
+[credential]
+  helper = cache --timeout=9600000
+[pull]
+  rebase = false
+[merge]
+  tool = vimdiff
+[http]
+  sslVerify = false
+[rerere]
+  enabled = true
+[color]
+  ui = true
+[color "diff"]
+  meta = blue
+  frag = magenta
+  old = red
+  new = green
+[alias]
+  st = status
+  sl = log --graph --branches='*' --decorate --oneline -n15
+  ci = commit
+  br = branch
+  co = checkout
+  df = diff
+  lg = log -p
+  trailing-newlines = !git ls-files | xargs sed -i -e '$a\\'
+  list-branch-by-date = !git for-each-ref --sort=committerdate refs/heads/
+[github]
+  user = threeiem
+[url "ssh://git@github.com/"]
+  insteadOf = https://github.com/
+[url "git@gist.github.com:"]
+  insteadOf = https://gist.github.com/
+[url "ssh://git@gitlab.com/"]
+  insteadOf = https://gitlab.com/
+# Local changes needed outside of fresh
+[include]
+  path = ~/.gitconfig.local
+[gpg]
+  program = /opt/homebrew/bin/gpg
+[user]
+  name = Phil Cogbill
+  email = threeiem@gmail.com
+  signingkey = 5F7359BA7D4C3ABC
